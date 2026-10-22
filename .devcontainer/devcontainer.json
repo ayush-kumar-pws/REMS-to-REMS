@@ -1,0 +1,43 @@
+// Dev container for GitHub Codespaces (and VS Code Dev Containers).
+// Open the repo in a codespace, then run:  dotnet run --project RemsToRems.Api --launch-profile http
+{
+  "name": "RemsToRems (.NET 10)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet:2": {
+      "version": "10.0"
+    }
+  },
+
+  // Codespaces asks for these when the codespace is created; store them as Codespaces secrets.
+  "secrets": {
+    "AzureBlobConfiguration__ConnectionString": {
+      "description": "Azure Storage connection string for the configuration-manager container (holds {environment}.json)."
+    }
+  },
+
+  "containerEnv": {
+    "ASPNETCORE_ENVIRONMENT": "Development",
+    "DOTNET_CLI_TELEMETRY_OPTOUT": "1"
+  },
+
+  // Matches the "http" profile in RemsToRems.Api/Properties/launchSettings.json.
+  "forwardPorts": [5269],
+  "portsAttributes": {
+    "5269": {
+      "label": "RemsToRems.Api (http)",
+      "onAutoForward": "notify"
+    }
+  },
+
+  "postCreateCommand": "dotnet restore RemsToRems.slnx",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "humao.rest-client"
+      ]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+@RemsToRems_Api_HostAddress = http://localhost:5269
+
+### Patient lookup
+POST {{RemsToRems_Api_HostAddress}}/api/patient/lookup
+Content-Type: application/json
+Accept: application/json
+
+{
+  "applicationName": "REMS",
+  "environment": "DEV",
+  "organization": "<client name>",
+  "firstName": "Jane",
+  "lastName": "Doe",
+  "dateOfBirth": "1980-01-31",
+  "zip5": "12345"
+}
+
+### Validation error (expect 400)
+POST {{RemsToRems_Api_HostAddress}}/api/patient/lookup
+Content-Type: application/json
+Accept: application/json
+
+{
+  "environment": "DEV"
+}
