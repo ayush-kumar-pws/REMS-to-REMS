@@ -21,23 +21,13 @@ namespace RemsToRems.Api
                 })
                 .ConfigureApiBehaviorOptions(options =>
                 {
-                    // Body/JSON binding errors (e.g. an invalid DateOfBirth) use the same ApiResponse shape.
+                    // The match body is bound as a JsonElement, so binding fails only for an empty body or
+                    // text that is not JSON. Parser messages are not returned; they name .NET types and offsets.
                     options.InvalidModelStateResponseFactory = context =>
-                    {
-                        var invalid = context.ModelState
-                            .Where(entry => entry.Value?.Errors.Count > 0)
-                            .ToList();
-
-                        // A bad JSON value also flags the whole body ("The request field is required.");
-                        // report only the field-level ($.field) errors when there are any.
-                        var fieldErrors = invalid.Where(entry => entry.Key.StartsWith('$')).ToList();
-                        var errors = (fieldErrors.Count > 0 ? fieldErrors : invalid)
-                            .Select(entry => $"{entry.Key}: {entry.Value!.Errors[0].ErrorMessage}");
-
-                        return new BadRequestObjectResult(
-                            ApiResponse<object>.Error(string.Join(" ", errors)));
-                    };
+                        ProblemResponses.MalformedBody(context.HttpContext);
                 });
+            // Shared by controller catch blocks and ApiExceptionFilter for unexpected (500) errors.
+            builder.Services.AddScoped<RemsToRems.Api.Filters.UnexpectedErrorLogger>();
             builder.Services.AddApplication();
             builder.Services.AddInfrastructure(builder.Configuration);
 

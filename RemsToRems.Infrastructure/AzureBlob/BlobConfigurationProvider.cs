@@ -1,5 +1,6 @@
 using Azure;
 using Azure.Storage.Blobs;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RemsToRems.Application.Common.Exceptions;
 using System.Text.Json;
@@ -10,6 +11,7 @@ namespace RemsToRems.Infrastructure.AzureBlob
     {
         private readonly BlobServiceClient _blobServiceClient;
         private readonly BlobConfigurationOptions _options;
+        private readonly ILogger<BlobConfigurationProvider> _logger;
         private readonly SemaphoreSlim _cacheLock = new(1, 1);
 
         // One entry per blob (i.e. per environment), so requests for different environments never share a document.
@@ -17,12 +19,14 @@ namespace RemsToRems.Infrastructure.AzureBlob
 
         public BlobConfigurationProvider(
             BlobServiceClient blobServiceClient,
-            IOptions<BlobConfigurationOptions> options)
+            IOptions<BlobConfigurationOptions> options,
+            ILogger<BlobConfigurationProvider> logger)
         {
             _blobServiceClient = blobServiceClient
                 ?? throw new ArgumentNullException(nameof(blobServiceClient));
             _options = options?.Value
                 ?? throw new ArgumentNullException(nameof(options));
+            _logger = logger;
         }
 
         public async Task<BlobConfigurationDocument> ReadAsync(
@@ -95,8 +99,14 @@ namespace RemsToRems.Infrastructure.AzureBlob
                     .GetBlobContainerClient(containerName)
                     .GetBlobClient(blobName);
 
+                // TEMP timing: only logged on a cache miss.
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
                 var result = await blob.DownloadContentAsync(cancellationToken)
                     .ConfigureAwait(false);
+                _logger.LogInformation(
+                    "Timing: downloaded config blob {BlobName} in {ElapsedMs} ms",
+                    blobName,
+                    stopwatch.ElapsedMilliseconds);
 
                 var document = result.Value.Content
                     .ToObjectFromJson<BlobConfigurationDocument>();

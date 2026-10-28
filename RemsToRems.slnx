@@ -4,6 +4,7 @@
     <File Path="README.md" />
   </Folder>
   <Project Path="RemsToRems.Api/RemsToRems.Api.csproj" />
+  <Project Path="RemsToRems.Application.Tests/RemsToRems.Application.Tests.csproj" />
   <Project Path="RemsToRems.Application/RemsToRems.Application.csproj" />
   <Project Path="RemsToRems.Domain/RemsToRems.Domain.csproj" />
   <Project Path="RemsToRems.Infrastructure/RemsToRems.Infrastructure.csproj" />

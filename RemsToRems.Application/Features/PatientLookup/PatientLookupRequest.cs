@@ -1,21 +1,36 @@
-using RemsToRems.Application.Abstractions.Database;
-
 namespace RemsToRems.Application.Features.PatientLookup
 {
-    public sealed class PatientLookupRequest : IHasDatabaseContext
+    /// <summary>
+    /// Patient lookup request, as REMS A sends it:
+    /// { "requestId": "...", "patient": { "firstName", "lastName", "dateOfBirth", "zipcode" } }.
+    /// Every value is kept as received text, so PatientLookupValidator can report each problem with its code.
+    /// The target database is not part of the request; it comes from the "DatabaseContext" and
+    /// "ConnectionStrings" settings.
+    /// </summary>
+    public sealed class PatientLookupRequest
     {
-        public string ApplicationName { get; init; } = string.Empty;
+        /// <summary>The caller's ID for this request (a UUID); echoed in the response.</summary>
+        public string? RequestId { get; init; }
 
-        public string Environment { get; init; } = string.Empty;
+        public PatientLookupPatient? Patient { get; init; }
 
-        public string Organization { get; init; } = string.Empty;
+        /// <summary>
+        /// Fields (PatientLookupFields names) whose JSON value was not a string, e.g. a ZIP sent as a number.
+        /// Set by PatientLookupRequestReader; such a field is invalid, not missing.
+        /// </summary>
+        public IReadOnlyCollection<string> NonStringFields { get; init; } = Array.Empty<string>();
+    }
 
-        public string FirstName { get; init; } = string.Empty;
+    public sealed class PatientLookupPatient
+    {
+        public string? FirstName { get; init; }
 
-        public string LastName { get; init; } = string.Empty;
+        public string? LastName { get; init; }
 
-        public DateOnly DateOfBirth { get; init; }
+        /// <summary>yyyy-MM-dd (UTC date).</summary>
+        public string? DateOfBirth { get; init; }
 
-        public string Zip5 { get; init; } = string.Empty;
+        /// <summary>Exactly five digits, as text so leading zeroes are kept.</summary>
+        public string? Zipcode { get; init; }
     }
 }

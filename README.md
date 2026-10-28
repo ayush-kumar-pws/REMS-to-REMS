@@ -48,23 +48,24 @@ Namespaces follow folders (`RemsToRems.Infrastructure.Database.Resolvers`, ...).
 
 ``` text
 RemsToRems.Api/                             # Presentation layer: HTTP API
-├── Controllers/PatientController.cs        # POST api/patient/lookup
-├── Filters/ApiExceptionFilter.cs           # exceptions -> ApiResponse (400/404/500) + [ErrorLog]
-├── Models/ApiResponse.cs                   # response envelope
+├── Controllers/PatientController.cs        # POST registry/match
+├── Filters/ApiExceptionFilter.cs           # exceptions -> problem+json (400/404/500) + [ErrorLog]
+├── Models/ProblemResponses.cs              # RFC 9457 error responses (application/problem+json)
 └── Program.cs
 
 RemsToRems.Application/                     # Use cases and the contracts they need
 ├── Abstractions/
 │   ├── Auditing/       IAuditTrailService, AuditEntry, ErrorLog, AuditTransactionType
-│   ├── Database/       DatabaseContext, IHasDatabaseContext
+│   ├── Database/       DatabaseContext, DatabaseContextOptions
 │   └── Repositories/   IPatientLookupRepository
 ├── Common/
 │   ├── Auditing/       AuditTrailBuilder (INSERT/UPDATE/DELETE field diffs)
-│   └── Exceptions/     ValidationException (400), NotFoundException (404)
+│   └── Exceptions/     ValidationException + ValidationError (400), NotFoundException (404)
 ├── Features/PatientLookup/
 │   ├── IPatientLookupService, PatientLookupService, PatientLookupValidator
-│   ├── PatientLookupRequest, PatientLookupResponse, PatientSearchCriteria
-│   └── PatientMatch, PatientMatchTier, FieldMatchResult
+│   ├── PatientLookupRequest, PatientLookupRequestReader, PatientLookupErrors (fields, codes)
+│   ├── PatientLookupResponse, PatientMatch, PatientMatchTier, FieldMatchResult
+│   └── Matching/       PatientNameNormalizer, PatientMatcher, PatientMatchRelease, MatchUniqueId
 └── DependencyInjection.cs
 
 RemsToRems.Domain/                          # Empty for now; add business rules here when they appear
@@ -88,8 +89,9 @@ Rules this layout follows:
 -   Controllers only call an application service; no validation, SQL or
     database selection.
 -   Application validates input and throws `ValidationException` /
-    `NotFoundException`; `ApiExceptionFilter` maps them to 400 / 404 and
-    everything else to 500 (written to `[ErrorLog]`).
+    `NotFoundException`; the controller (and `ApiExceptionFilter` as a
+    safety net) maps them to 400 / 404 and everything else to 500 (written
+    to `[ErrorLog]`), all as `application/problem+json`.
 -   Repository interfaces take a `DatabaseContext` plus
     feature-specific criteria, never the HTTP request type.
 -   Infrastructure types are `internal`; only `AddInfrastructure` is public.
@@ -424,6 +426,32 @@ Recommended responsibilities:
 Validate database identifiers against a trusted configuration source or
 allow-list. Never treat a caller-supplied identifier as permission to
 connect to an arbitrary database.
+
+### 9.1 API 1 (`POST /registry/match`) validation errors
+
+Every error is RFC 9457 `application/problem+json` with `type`, `title`,
+`status`, `detail`, `instance`, the request's `requestId` (when it was a
+valid UUID) and a new `responseId`. A 400 also has `errors`: one
+`{ field, reason, code }` per failed field, all reported together, and no
+lookup runs. Reasons never include the submitted value.
+
+| Field | Missing / blank | Invalid |
+|---|---|---|
+| requestId | 101 (also all zeros) | 100 (not an 8-4-4-4-12 UUID) |
+| patient.firstName | 105 (also empty after cleanup, e.g. "Dr.") | 104 (> 255), 112 (unsupported character) |
+| patient.lastName | 107 (also empty after cleanup) | 106 (> 255), 112 (unsupported character) |
+| patient.dateOfBirth | 109 | 108 (not yyyy-MM-dd, not a real date, or in the future) |
+| patient.zipcode | 111 | 110 (not exactly 5 ASCII digits, or not a JSON string) |
+
+A missing `patient` object reports its four fields as missing. A body that
+is empty or not JSON gets the same 400 problem with `errors: []`. Codes 112,
+the future-DOB mapping, the all-zero requestId and non-string values are
+pending partner confirmation (`PatientLookupErrorCodes`).
+
+Before the character check, names are made plain ASCII
+(`PatientNameNormalizer.ToAscii`): accents removed (José → JOSE), curly
+quotes → `'`, long dashes → `-`. Stored names in SQL are not folded yet, so a
+stored accented name is still left out of matching.
 
 ## 10. Testing approach
 

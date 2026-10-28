@@ -1,25 +1,31 @@
 @RemsToRems_Api_HostAddress = http://localhost:5269
 
-### Patient lookup
-POST {{RemsToRems_Api_HostAddress}}/api/patient/lookup
+### Patient match (S1 John Smith; dateOfBirth is the UTC date)
+POST {{RemsToRems_Api_HostAddress}}/registry/match
 Content-Type: application/json
 Accept: application/json
 
 {
-  "applicationName": "REMS",
-  "environment": "DEV",
-  "organization": "<client name>",
-  "firstName": "Jane",
-  "lastName": "Doe",
-  "dateOfBirth": "1980-01-31",
-  "zip5": "12345"
+  "requestId": "3de6e667-9c77-4ec3-b18e-cdfcc19cae4c",
+  "patient": {
+    "firstName": "John",
+    "lastName": "Smith",
+    "dateOfBirth": "1979-12-31",
+    "zipcode": "12345"
+  }
 }
 
-### Validation error (expect 400)
-POST {{RemsToRems_Api_HostAddress}}/api/patient/lookup
+### Validation error (expect 400 application/problem+json, codes 112, 108, 110)
+POST {{RemsToRems_Api_HostAddress}}/registry/match
 Content-Type: application/json
 Accept: application/json
 
 {
-  "environment": "DEV"
+  "requestId": "3de6e667-9c77-4ec3-b18e-cdfcc19cae4c",
+  "patient": {
+    "firstName": "J0hn",
+    "lastName": "Smith",
+    "dateOfBirth": "01/01/1980",
+    "zipcode": "1234"
+  }
 }

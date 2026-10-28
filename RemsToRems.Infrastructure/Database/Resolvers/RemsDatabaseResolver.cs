@@ -16,19 +16,22 @@ namespace RemsToRems.Infrastructure.Database.Resolvers
         private readonly IDbCommandExecutor _commandExecutor;
         private readonly IMemoryCache _cache;
         private readonly TimeSpan _cacheDuration;
+        private readonly string? _directConnectionString;
 
         public RemsDatabaseResolver(
             ISurveyDatabaseResolver surveyDatabaseResolver,
             IDbConnectionFactory connectionFactory,
             IDbCommandExecutor commandExecutor,
             IMemoryCache cache,
-            IOptions<BlobConfigurationOptions> options)
+            IOptions<BlobConfigurationOptions> blobOptions,
+            IOptions<DatabaseConnectionOptions> connections)
         {
             _surveyDatabaseResolver = surveyDatabaseResolver;
             _connectionFactory = connectionFactory;
             _commandExecutor = commandExecutor;
             _cache = cache;
-            _cacheDuration = options.Value.CacheDuration;
+            _cacheDuration = blobOptions.Value.CacheDuration;
+            _directConnectionString = connections.Value.RemsDb;
         }
 
         public async Task<ResolvedDatabase> ResolveAsync(
@@ -36,6 +39,12 @@ namespace RemsToRems.Infrastructure.Database.Resolvers
             CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(context);
+
+            // ConnectionStrings:RemsDb set: use it directly, no Survey [Client] lookup.
+            if (!string.IsNullOrWhiteSpace(_directConnectionString))
+            {
+                return new ResolvedDatabase(context.Organization, context.Environment, _directConnectionString);
+            }
 
             // The Client -> REMS catalog mapping rarely changes; cache it so each request
             // does not pay a Survey database round trip (the lookup and its audit both resolve it).
